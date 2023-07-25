@@ -1,6 +1,6 @@
-const Users   = require("../models/user.js");
+const User = require("../models/user.js");
 const jwt = require("jsonwebtoken");
-const bcrypt  = require('bcrypt');
+const bcrypt = require('bcrypt');
 
 const saltRounds = 10;
 const JWT_SECRET = "newtonSchool";
@@ -57,11 +57,47 @@ json = {
 
 */
 
-const loginUser =async (req, res) => {
+const loginUser = async (req, res) => {
+    try {
+        const email = req.body.email;
+        const password = req.body.password;
 
-    const email  = req.body.email;
-    const password = req.body.password;
+        if (!email) return res.status(403).json({ message: "Email is required!" })
+        if (!password) return res.status(403).json({
+            message: "Password is required!"
+        })
 
+        const isUserExist = await User.findOne({ email })
+        if (isUserExist) {
+
+            const passwordMatch = await bcrypt.compare(password, isUserExist.password)
+            if (!passwordMatch) {
+                return res.status(403).json({
+                    message: 'Invalid Password, try again !!',
+                    status: 'fail'
+                })
+            }
+            // generate jwt token - userId
+            const token = jwt.sign({ userId: isUserExist._id }, JWT_SECRET, { expiresIn: '1h' })
+            return res.status(200).json({
+                status: 'success',
+                token
+            })
+
+
+        } else {
+            return res.status(404).json({
+                message: 'User with this E-mail does not exist !!',
+                status: 'fail'
+            })
+        }
+
+    } catch (error) {
+        return res.status(500).json({
+            status: 'fail',
+            message: 'Something went wrong'
+        })
+    }
     //Write your code here.
 
 }
@@ -116,12 +152,37 @@ json = {
 */
 
 const signupUser = async (req, res) => {
+    //Write your code here.
+    try {
+        const { email, password, name, role } = req.body;
+        if (!email) return res.status(401).json({ message: "Email is required!" })
+        if (!password) return res.status(401).json({ message: "Password is required!" })
+        if (!name) return res.status(401).json({ message: "Name is required!" })
+        if (!role) return res.status(401).json({ message: "Role is required!" })
 
-    const {email, password, name, role} = req.body;
-
-     //Write your code here.
-
+        const userExist = await User.findOne({ email });
+        if (userExist) {
+            return res.status(409).json({
+                message: "User with given Email allready register",
+                status: "fail"
+            })
+        }
+        const hashedPassword = await bcrypt.hash(password, 10)
+        const user = new User({
+            email, password: hashedPassword, name, role
+        })
+        await user.save();
+        return res.status(200).json({
+            message: 'User SignedUp successfully',
+            status: 'success'
+        })
+    } catch (error) {
+        return res.status(500).json({
+            status: 'fail',
+            message: 'Something went wrong'
+        })
+    }
 }
 
-module.exports = { loginUser , signupUser };
+module.exports = { loginUser, signupUser };
 
